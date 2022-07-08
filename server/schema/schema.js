@@ -1,6 +1,9 @@
 const Project = require('../models/Project')
 const Client = require('../models/Client')
 
+const bcrypt = require('bcryptjs')
+const jsonwebtoken = require('jsonwebtoken')
+
 const {
   GraphQLObjectType,
   GraphQLID,
@@ -36,6 +39,7 @@ const ClientType = new GraphQLObjectType({
     name: { type: GraphQLString },
     email: { type: GraphQLString },
     phone: { type: GraphQLString },
+    password: {type: GraphQLString}
   }),
 })
 
@@ -44,7 +48,8 @@ const RootQuery = new GraphQLObjectType({
   fields: {
     projects: {
       type: new GraphQLList(ProjectType),
-      resolve(parent, args) {
+      resolve(parent, args, context, info) {
+        // if(context.user.role ==='admin')
         return Project.find();
       },
     },
@@ -76,21 +81,51 @@ const mutation = new GraphQLObjectType({
   name: 'Mutation',
   fields: {
     // Add a client
-    addClient: {
+    // addClient
+    registerClient: {
       type: ClientType,
       args: {
         name: { type: GraphQLNonNull(GraphQLString) },
         email: { type: GraphQLNonNull(GraphQLString) },
         phone: { type: GraphQLNonNull(GraphQLString) },
+        password: { type: GraphQLNonNull(GraphQLString) }
       },
       resolve(parent, args) {
-        const client = new Client({
-          name: args.name,
-          email: args.email,
-          phone: args.phone,
-        });
 
-        return client.save();
+      const client = new Client({
+        name: args.name,
+        email: args.email,
+        phone: args.phone,
+        password: bcrypt.hash(args.password, 10)
+      })
+
+      const token = jsonwebtoken.sign(
+        {id: client.id, email:client.email},
+        'supersecret',
+      )
+      client.save()
+
+        return client
+        
+      },
+    },
+    loginClient: {
+      type: ClientType,
+      args: {
+        email: { type: GraphQLNonNull(GraphQLString) },
+        password: { type: GraphQLNonNull(GraphQLString) }
+      },
+      resolve(parent, args) {
+        const client = Client.findOne({where:args.email})
+
+        const token = jsonwebtoken.sign(
+          {id: client.id, email:client.email},
+          'supersecret',
+        )
+        const response = {
+          client, token
+        }
+        return response
       },
     },
     // Delete a client

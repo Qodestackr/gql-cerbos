@@ -1,3 +1,8 @@
 node_modules
 .env
-data
+draft.*
+draft.md 
+/draft.*
+/draft.md
+.gitignore
+/.gitignore
