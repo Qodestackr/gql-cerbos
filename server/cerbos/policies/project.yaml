@@ -1,0 +1,25 @@
+---
+# point to API version
+apiVersion: api.cerbos.dev/v1
+# resoucePolicy is the business logic that states actions, conditions, and roles
+resourcePolicy:
+  version: default
+  resource: project
+  rules:
+    - actions: ["*"]#["read", "create", "update", "delete"]
+      effect: EFFECT_ALLOW
+      roles:
+        - admin
+        - user
+    - actions: ["update", "delete"]
+      effect: EFFECT_ALLOW
+      roles:
+        - admin
+
+    - actions: ["*"] #["update", "delete"]
+      effect: EFFECT_ALLOW
+      roles: -user
+      condition:
+        match:
+          expr: request.resource.attr.owner == request.principal.id
+          # Allowed only if you are the owner of the resource

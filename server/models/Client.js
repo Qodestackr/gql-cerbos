@@ -10,6 +10,12 @@ const ClientSchema = new mongoose.Schema({
   phone: {
     type: String,
   },
+  role: {
+    type: String
+  },
+  password: {
+    type: String 
+  }
 })
 
 module.exports = mongoose.model('Client', ClientSchema)

@@ -4,6 +4,12 @@ const Client = require('../models/Client')
 const bcrypt = require('bcryptjs')
 const jsonwebtoken = require('jsonwebtoken')
 
+const {Cerbos} = require('cerbos')
+const cerbosInstance = new Cerbos({
+  hostname: "http://localhost:3592",
+})
+
+
 const {
   GraphQLObjectType,
   GraphQLID,
@@ -38,9 +44,17 @@ const ClientType = new GraphQLObjectType({
     id: { type: GraphQLID },
     name: { type: GraphQLString },
     email: { type: GraphQLString },
-    phone: { type: GraphQLString },
+    role: { type: GraphQLString },
     password: {type: GraphQLString}
   }),
+})
+
+const AuthPayload = new GraphQLObjectType({
+  name: 'AuthPayloadType',
+  fields: () => ({
+    token: { type: GraphQLString },
+    client: ClientType
+  })
 })
 
 const RootQuery = new GraphQLObjectType({
@@ -87,24 +101,25 @@ const mutation = new GraphQLObjectType({
       args: {
         name: { type: GraphQLNonNull(GraphQLString) },
         email: { type: GraphQLNonNull(GraphQLString) },
-        phone: { type: GraphQLNonNull(GraphQLString) },
+        role: { type: GraphQLNonNull(GraphQLString) },
         password: { type: GraphQLNonNull(GraphQLString) }
       },
-      resolve(parent, args) {
+      async resolve(parent, {name, email, role, password}) {
 
-      const client = new Client({
-        name: args.name,
-        email: args.email,
-        phone: args.phone,
-        password: bcrypt.hash(args.password, 10)
+      const client = Client.create({
+        name: name,
+        email: email,
+        role: role,
+        password: await bcrypt.hash(password, 10),
       })
+
+
+      // client.save()
 
       const token = jsonwebtoken.sign(
         {id: client.id, email:client.email},
         'supersecret',
       )
-      client.save()
-
         return client
         
       },
@@ -115,17 +130,30 @@ const mutation = new GraphQLObjectType({
         email: { type: GraphQLNonNull(GraphQLString) },
         password: { type: GraphQLNonNull(GraphQLString) }
       },
-      resolve(parent, args) {
-        const client = Client.findOne({where:args.email})
 
-        const token = jsonwebtoken.sign(
-          {id: client.id, email:client.email},
-          'supersecret',
-        )
-        const response = {
-          client, token
+      async resolve(parent, args) {
+        const client = await Client.findOne({ email: args.email })
+
+        if (!client) {
+          throw new Error(`No user found with email, ${args.email}`)
         }
-        return response
+
+        const isValid = await bcrypt.compare(args.password, client.password)
+
+        if (!isValid){
+          throw new Error('invalid password')
+        }
+
+        // Else
+          const token = jsonwebtoken.sign(
+            {id: client.id},
+            'supersecret',
+          )
+
+          console.log(token)
+
+          return client
+
       },
     },
     // Delete a client
@@ -175,18 +203,65 @@ const mutation = new GraphQLObjectType({
         return project.save();
       },
     },
+
+
+
+
     // Delete a project
     deleteProject: {
       type: ProjectType,
       args: {
         id: { type: GraphQLNonNull(GraphQLID) },
+        client: { type: GraphQLString }, 
+        email: { type: GraphQLString }, 
       },
-      resolve(parent, args) {
-        console.log(id)
+
+      async resolve(parent, args) {
+
+        const client = await Client.findOne({email:args.email})
+        const project = await Project.findById(args.id)
+
+        console.log(project)
+
+        // cerbos options
+        const cerbosOptions = {
+          actions: ["read", "create","update", "delete"],
+          resource: {
+            policyVersion: "default",
+            kind: "project",
+            instances: {
+              project: {
+                [args.id]: {
+                  attr: {} // a map of attributes about the resource - not used yet
+                },
+              },
+            },
+          },
+          principal: {
+            id: "0", //// the user ID
+            policyVersion: "default",
+            roles: [/**user?.role */ "admin" || "unknown"], // list of roles from user's profile
+            attr: {},
+          },
+          includeMeta: true,
+      }
+
+        const cerbosCheck = await cerbosInstance.check(cerbosOptions)
+        const isAuthorized = cerbosCheck.isAuthorized("project", "delete")
+
+
+        console.log(client, isAuthorized)
+        
+        if (isAuthorized){
+          throw new Error("You are not authorized to perform this action")
+        }
+        
         return Project.findByIdAndRemove(args.id);
       },
     },
+
     // Update a project
+
     updateProject: {
       type: ProjectType,
       args: {

@@ -5,12 +5,14 @@
   "main": "index.js",
   "scripts": {
     "start": "node server/index.js",
-    "dev": "nodemon server/index.js"
+    "dev": "nodemon server/index.js",
+    "it": "nodemon v2/v2.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@cerbos/sdk": "^0.4.7",
     "bcryptjs": "^2.4.3",
     "cerbos": "^0.4.0",
     "colors": "^1.4.0",

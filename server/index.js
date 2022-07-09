@@ -13,6 +13,37 @@ const app = express()
 connectDB()
 
 app.use(cors())
+const {Cerbos} = require('cerbos')
+const cerbosInstance = new Cerbos({
+  hostname: "http://localhost:3592",
+})
+
+/**
+
+const permissions = await cerbosInstance.check({
+  principal: {
+    id: req.user.id,
+    roles: req.user.roles,
+    attr: req.user
+  },
+  resource: {
+    kind: "project",
+    instances: {
+      [project.id]: {
+        attr: project
+      }
+    }
+  },
+  actions: ["update"]
+  if(!permissions.isAuthorized(project.id, "update")){
+     return res.status(403).json({msg: "forbidden"}) 
+  }
+  
+  await updateProject(project, req.body)
+  res.status(200).json({status: "ok", data: project})
+*/
+
+
 
 app.use(
   '/graphql',
