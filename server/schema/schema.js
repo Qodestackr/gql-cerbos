@@ -221,42 +221,42 @@ const mutation = new GraphQLObjectType({
         const client = await Client.findOne({email:args.email})
         const project = await Project.findById(args.id)
 
-        console.log(project)
-
         // cerbos options
-        const cerbosOptions = {
-          actions: ["read", "create","update", "delete"],
-          resource: {
-            policyVersion: "default",
-            kind: "project",
-            instances: {
-              project: {
-                [args.id]: {
-                  attr: {} // a map of attributes about the resource - not used yet
-                },
-              },
-            },
-          },
-          principal: {
-            id: "0", //// the user ID
-            policyVersion: "default",
-            roles: [/**user?.role */ "admin" || "unknown"], // list of roles from user's profile
-            attr: {},
-          },
-          includeMeta: true,
-      }
+      //   const cerbosOptions = {
+      //     actions: ["read", "create","update", "delete"],
+      //     resource: {
+      //       policyVersion: "default",
+      //       kind: "project",
+      //       instances: {
+      //         project: {
+      //           [args.id]: {
+      //             attr: {} // a map of attributes about the resource - not used yet
+      //           },
+      //         },
+      //       },
+      //     },
+      //     principal: {
+      //       id: "0", //// the user ID
+      //       policyVersion: "default",
+      //       roles: [/**user?.role */ "admin" || "unknown"], // list of roles from user's profile
+      //       attr: {},
+      //     },
+      //     includeMeta: true,
+      // }
 
-        const cerbosCheck = await cerbosInstance.check(cerbosOptions)
-        const isAuthorized = cerbosCheck.isAuthorized("project", "delete")
-
-
-        console.log(client, isAuthorized)
+        // const cerbosCheck = await cerbosInstance.check(cerbosOptions)
+        // const isAuthorized = cerbosCheck.isAuthorized("project", "delete")
         
-        if (isAuthorized){
+        
+        const isValidRole = await checkRole(client, project)
+
+        console.log(!isValidRole)
+        
+        if (!!isValidRole){
           throw new Error("You are not authorized to perform this action")
         }
         
-        return Project.findByIdAndRemove(args.id);
+        return project//Project.findByIdAndRemove(args.id);
       },
     },
 
@@ -296,6 +296,38 @@ const mutation = new GraphQLObjectType({
     },
   },
 })
+
+
+async function checkRole(client, project){
+  // cerbos options
+  const cerbosOptions = {
+    actions: ["read", "create","update", "delete"],
+    resource: {
+      policyVersion: "default",
+      kind: "project",
+      instances: {
+        project: {
+          [project._id]: {
+            attr: {} // a map of attributes about the resource
+          },
+        },
+      },
+    },
+    principal: {
+      id: client._id, //// the user ID
+      policyVersion: "default",
+      roles: [client?.role || "unknown"], // list of roles from user's profile
+      attr: {},
+    },
+    includeMeta: true,
+}
+
+  const cerbosCheck = await cerbosInstance.check(cerbosOptions)
+  const isAuthorized = cerbosCheck.isAuthorized("project", "delete")
+  return isAuthorized
+}
+
+
 
 module.exports = new GraphQLSchema({
   query: RootQuery,
